@@ -1,8 +1,5 @@
 {
-  "build": {
-    "builder": "nixpacks",
-    "buildCommand": "cd GigFlow-Backend && npm install"
-  },
+  "builder": "nixpacks",
   "deploy": {
     "startCommand": "cd GigFlow-Backend && npm start"
   }
