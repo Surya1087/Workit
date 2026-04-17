@@ -35,7 +35,6 @@ const startServer = async () => {
     process.on('unhandledRejection', (err) => {
       console.error('Unhandled Promise Rejection:', err);
       server.close(() => {
-        process.exit(1);
       });
     });
 
@@ -43,14 +42,12 @@ const startServer = async () => {
     process.on('uncaughtException', (err) => {
       console.error('Uncaught Exception:', err);
       server.close(() => {
-        process.exit(1);
       });
     });
 
     return server;
   } catch (error) {
     console.error('Failed to start server:', error);
-    process.exit(1);
   }
 };
 
