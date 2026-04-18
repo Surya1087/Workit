@@ -16,7 +16,16 @@ const createApp = () => {
   // CORS configuration
   app.use(
     cors({
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: (origin, callback) => {
+        const allowed = (process.env.CLIENT_URL || 'http://localhost:5173')
+          .split(',')
+          .map(u => u.trim());
+        if (!origin || allowed.indexOf(origin) !== -1) {
+          callback(null, origin || allowed[0]);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
