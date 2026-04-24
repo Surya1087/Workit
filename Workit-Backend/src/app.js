@@ -10,11 +10,12 @@ const createApp = () => {
   app.use(helmet());
 
   // ✅ FIXED CORS
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'https://workit-frontend.vercel.app',
-    'https://tryworkit.vercel.app'
-  ];
+ const allowedOrigins = [
+  'https://workit-neon.vercel.app',  // ADD THIS
+  'https://gigflow-frontend-rust.vercel.app',
+  'https://trygigflow.vercel.app',
+  'http://localhost:5173'
+];
 
   app.use(
     cors({
