@@ -4,44 +4,44 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const routes = require('./routes');
 
-/**
- * Create and configure Express application
- */
 const createApp = () => {
   const app = express();
 
-  // Security middleware
   app.use(helmet());
 
-  // CORS configuration
+  // ✅ FIXED CORS
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://gigflow-frontend-rust.vercel.app',
+    'https://trygigflow.vercel.app'
+  ];
+
   app.use(
     cors({
-      origin: (origin, callback) => {
-        const allowed = (process.env.CLIENT_URL || 'http://localhost:5173')
-          .split(',')
-          .map(u => u.trim());
-        if (!origin || allowed.indexOf(origin) !== -1) {
-          callback(null, origin || allowed[0]);
+      origin: function (origin, callback) {
+        // allow requests with no origin (like Postman)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, origin); // ✅ only ONE origin returned
         } else {
-          callback(new Error('Not allowed by CORS'));
+          return callback(new Error('Not allowed by CORS'));
         }
       },
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
     })
   );
 
-  // Request logging
+  // ✅ Important: handle preflight properly
+  app.options('*', cors());
+
   if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('dev'));
   }
 
-  // Body parsing
   app.use(express.json({ limit: '10kb' }));
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-  // Health check endpoint
   app.get('/health', (req, res) => {
     res.status(200).json({
       success: true,
@@ -50,10 +50,8 @@ const createApp = () => {
     });
   });
 
-  // API routes
   app.use('/api', routes);
 
-  // 404 handler
   app.use((req, res) => {
     res.status(404).json({
       success: false,
@@ -61,20 +59,15 @@ const createApp = () => {
     });
   });
 
-  // Global error handler
   app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
 
-    const statusCode = err.statusCode || 500;
-    const message =
-      process.env.NODE_ENV === 'production'
-        ? 'Internal server error'
-        : err.message;
-
-    res.status(statusCode).json({
+    res.status(err.statusCode || 500).json({
       success: false,
-      error: message,
-      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+      error:
+        process.env.NODE_ENV === 'production'
+          ? 'Internal server error'
+          : err.message,
     });
   });
 
