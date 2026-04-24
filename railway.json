@@ -1,6 +1,6 @@
 {
   "builder": "nixpacks",
   "deploy": {
-    "startCommand": "cd GigFlow-Backend && npm start"
+    "startCommand": "cd Workit-Backend && npm start"
   }
 }
