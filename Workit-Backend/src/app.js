@@ -12,8 +12,8 @@ const createApp = () => {
   // ✅ FIXED CORS
   const allowedOrigins = [
     'http://localhost:5173',
-    'https://gigflow-frontend-rust.vercel.app',
-    'https://trygigflow.vercel.app'
+    'https://workit-frontend.vercel.app',
+    'https://tryworkit.vercel.app'
   ];
 
   app.use(
