@@ -1,8 +1,8 @@
-# GigFlow Frontend
+# Workit Frontend
 
 A modern React-based frontend for a freelance marketplace platform.
 
-## Get the GigFlow Backend at : ![GigFlow-Backend](https://github.com/Ayusman-Singhal/GigFlow-backend.git)
+## Get the Workit Backend : ![Workit-Backend]
 
 ## 🚀 Tech Stack
 - React 19 + Vite

@@ -1,8 +1,8 @@
-# GigFlow Backend
+# Workit Backend
 
 A Node.js/Express backend for a freelance marketplace with secure hiring logic and real-time notifications.
 
-## Get the GigFlow Frontend at : ![GigFlow-Frontend](https://github.com/Ayusman-Singhal/GigFlow-Frontend.git)
+## Get the Workit Frontend : ![Workit-Frontend]
 
 ## 🚀 Tech Stack
 - Node.js + Express.js

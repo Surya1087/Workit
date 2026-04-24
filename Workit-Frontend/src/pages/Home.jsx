@@ -38,7 +38,7 @@ const Home = () => {
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-zinc-300 mb-12 max-w-2xl mx-auto leading-relaxed">
-            GigFlow connects skilled freelancers with exciting projects. Post gigs, place bids, 
+            Workit connects skilled freelancers with exciting projects. Post gigs, place bids, 
             and build your portfolio in a streamlined marketplace designed for growth.
           </p>
 
@@ -85,7 +85,7 @@ const Home = () => {
               How It Works
             </h2>
             <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
-              Getting started with GigFlow is simple. Follow these steps to start working or hiring.
+              Getting started with Workit is simple. Follow these steps to start working or hiring.
             </p>
           </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "gigflow-server",
+  "name": "workit-server",
   "version": "1.0.0",
-  "description": "GigFlow Backend API - Mini Freelance Marketplace",
+  "description": "Workit Backend API - Mini Freelance Marketplace",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

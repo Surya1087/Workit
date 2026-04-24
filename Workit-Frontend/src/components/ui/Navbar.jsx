@@ -23,9 +23,9 @@ export const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-sm bg-white flex items-center justify-center">
-            <span className="text-zinc-950 font-bold text-sm">GF</span>
+            <span className="text-zinc-950 font-bold text-sm">WI</span>
           </div>
-          <span className="font-semibold text-white hidden sm:block text-xl" style={{ fontFamily: 'Delius, cursive' }}>GigFlow</span>
+          <span className="font-semibold text-white hidden sm:block text-xl" style={{ fontFamily: 'Delius, cursive' }}>Workit</span>
         </Link>
 
         {/* Center Navigation - Desktop */}

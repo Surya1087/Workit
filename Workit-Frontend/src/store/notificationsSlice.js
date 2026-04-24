@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const NOTIFICATION_STORAGE_KEY = 'gigflow_notifications';
+const NOTIFICATION_STORAGE_KEY = 'workit_notifications';
 
 const loadNotifications = () => {
   try {
