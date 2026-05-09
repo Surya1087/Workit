@@ -1,10 +1,11 @@
-# Workit Frontend
+* Workit Frontend *
 
 A modern React-based frontend for a freelance marketplace platform.
 
-## Get the Workit Backend : ![Workit-Backend]
+Get the Workit Frontend  : https://github.com/Surya1087/Workit/tree/main/Workit-Frontend
 
-## 🚀 Tech Stack
+* Tech Stack :
+  
 - React 19 + Vite
 - Tailwind CSS
 - Redux Toolkit (State management)
@@ -13,31 +14,32 @@ A modern React-based frontend for a freelance marketplace platform.
 - Socket.io-client (Real-time notifications)
 - Axios (API calls)
 
-## 🎯 Key Features
-- ✅ User authentication (Clerk)
-- ✅ Browse and search gigs
-- ✅ Post new gigs
-- ✅ Submit and manage bids
-- ✅ **Hire freelancers with transaction safety**
-- ✅ **Real-time notification system with badge**
-- ✅ Notification history with localStorage persistence
-- ✅ Responsive design
+* Key Features :
+  
+-  User authentication (Clerk)
+-  Browse and search gigs
+-  Post new gigs
+-  Submit and manage bids
+-  Hire freelancers with transaction safety
+-  Real-time notification system with badge
+-  Notification history with localStorage persistence
+-  Responsive design
 
-## 🔧 Setup Instructions
-
+* Setup Instructions :
+  
 1. Clone the repository
 2. Install dependencies: `npm install`
 3. Copy `.env.example` to `.env`
 4. Fill in your environment variables
 5. Run: `npm run dev`
 
-## 🌍 Environment Variables
+* Environment Variables:
 
 See `.env.example`:
 - `VITE_API_BASE_URL` - Backend API URL
 - `VITE_CLERK_PUBLISHABLE_KEY` - Clerk public key
 
-## 🔔 Notification System
+* Notification System :
 
 The app includes a complete notification system:
 - Real-time notifications via Socket.io
@@ -46,7 +48,7 @@ The app includes a complete notification system:
 - Browser push notifications
 - Click to navigate to relevant page
 
-## 📁 Project Structure
+* Project Structure
 ```
 src/
 ├── components/    # Reusable UI components
@@ -57,9 +59,10 @@ src/
 └── config/        # Environment config
 ```
 
-## 🏆 Bonus Features Implemented
+* Imp Features Implemented
 
-### Real-time Notifications (Bonus 2)
+Real-time Notifications :
+
 - Socket.io connection on login
 - Instant "You Got Hired!" notifications
 - No refresh required
