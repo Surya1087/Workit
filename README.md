@@ -4,7 +4,9 @@ A full-stack freelance marketplace where clients post gigs, freelancers submit b
 
 Repositories : 
 Workit : https://github.com/Surya1087/Workit
+
 Workit-Frontend : https://github.com/Surya1087/Workit/tree/main/Workit-Frontend
+
 Workit-Backend : https://github.com/Surya1087/Workit/tree/main/Workit-Backend
 
 ✨ Platform Features : 
