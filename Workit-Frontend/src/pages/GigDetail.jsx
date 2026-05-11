@@ -5,6 +5,7 @@ import Input from '../components/ui/Input';
 import Textarea from '../components/ui/Textarea';
 import { useApiClient } from '../hooks/useApiClient';
 import { useAuthUser } from '../hooks/useAuthUser';
+import { useAuth } from '@clerk/clerk-react';
 
 const statusColors = {
   open: 'bg-emerald-100/10 text-emerald-100 border-emerald-200/30',
@@ -15,13 +16,47 @@ const statusColors = {
 const GigDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const { client, isLoaded: apiLoaded } = useApiClient();
   const { authUser } = useAuthUser();
+
+  // ✅ PROTECT: Check auth on mount
+  // ✅ PROTECT: Check auth on mount
+   // ✅ PROTECT: Check auth on mount
+  useEffect(() => {
+    console.log('🔍 GigDetail mounted - authLoaded:', authLoaded, 'isSignedIn:', isSignedIn);
+    
+    if (authLoaded === true && isSignedIn === false) {
+      console.log('🚫 Not signed in, redirecting to login');
+      window.location.href = '/login'; // Redirect to login page
+      return;
+    }
+  }, [authLoaded, isSignedIn]);
+
+  // ✅ Show loading while Clerk is checking auth
+  if (!authLoaded) {
+    console.log('⏳ Waiting for Clerk to load...');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Don't render if not signed in
+  if (!isSignedIn) {
+    console.log('🔒 Not signed in, returning null');
+    return null;
+  }
+
+  console.log('✅ User is signed in, rendering GigDetail');
 
   const [gig, setGig] = useState(null);
   const [gigLoading, setGigLoading] = useState(false);
   const [gigError, setGigError] = useState(null);
-
   const [bids, setBids] = useState([]);
   const [bidsLoading, setBidsLoading] = useState(false);
   const [bidsError, setBidsError] = useState(null);
@@ -46,12 +81,35 @@ const GigDetail = () => {
     return statusColors[gig?.status] || statusColors.open;
   }, [gig?.status]);
 
+  // ✅ PROTECT: Redirect if not signed in
+  useEffect(() => {
+    console.log('🔒 GigDetail - authLoaded:', authLoaded, 'isSignedIn:', isSignedIn);
+    if (authLoaded && !isSignedIn) {
+      console.log('🔒 GigDetail: User not signed in, redirecting to home');
+      navigate('/', { replace: true });
+    }
+  }, [authLoaded, isSignedIn, navigate]);
+
+  // ✅ SHOW LOADING WHILE CHECKING AUTH
+  if (!authLoaded || !apiLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  // ✅ DON'T RENDER IF NOT SIGNED IN
+  if (!isSignedIn) {
+    return null;
+  }
+
   const loadGig = async () => {
     if (!client || !id) return;
     setGigLoading(true);
     setGigError(null);
     try {
-      const response = await client.get(`/api/gigs/${id}`);
+      const response = await client.get(`/gigs/${id}`);
       const data = response?.data;
       const detail = data?.data || data;
       setGig(detail);
@@ -76,7 +134,7 @@ const GigDetail = () => {
     setBidsLoading(true);
     setBidsError(null);
     try {
-      const response = await client.get(`/api/bids/${id}`);
+      const response = await client.get(`/bids/${id}`);
       const data = response?.data;
       const list = data?.data || data || [];
       setBids(Array.isArray(list) ? list : []);
@@ -92,7 +150,7 @@ const GigDetail = () => {
     if (!client || !id || !authUser) return;
     setUserBidLoading(true);
     try {
-      const response = await client.get(`/api/bids/my/${id}`);
+      const response = await client.get(`/bids/my/${id}`);
       const data = response?.data?.data;
       setUserBid(data);
       if (data) {
@@ -149,9 +207,9 @@ const GigDetail = () => {
       };
 
       if (userBid) {
-        await client.put(`/api/bids/${userBid.id}`, payload);
+        await client.put(`/bids/${userBid.id}`, payload);
       } else {
-        const response = await client.post(`/api/bids`, payload);
+        const response = await client.post(`/bids`, payload);
         setUserBid(response?.data?.data);
       }
 
@@ -178,14 +236,6 @@ const GigDetail = () => {
     if (!gig?.ownerId) return;
     navigate(`/messages?user=${gig.ownerId}`);
   };
-
-  if (!apiLoaded) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-sm font-medium text-zinc-600">Loading...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
@@ -305,7 +355,7 @@ const GigDetail = () => {
                                 <Button
                                   onClick={async () => {
                                     try {
-                                      await client.patch(`/api/bids/${bid.id}/hire`, {});
+                                      await client.patch(`/bids/${bid.id}/hire`, {});
                                       
                                       if (window.__toastContainer) {
                                         window.__toastContainer.addToast({

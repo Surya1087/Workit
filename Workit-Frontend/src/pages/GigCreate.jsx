@@ -1,19 +1,53 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Textarea from '../components/ui/Textarea';
 import { useApiClient } from '../hooks/useApiClient';
+import { useAuth } from '@clerk/clerk-react';
 
 const GigCreate = () => {
-  const { client, isLoaded } = useApiClient();
+  const { client, isLoaded: apiLoaded } = useApiClient();
   const navigate = useNavigate();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
+    // ✅ PROTECT: Check auth on mount
+  useEffect(() => {
+    console.log('🔍 GigCreate mounted - authLoaded:', authLoaded, 'isSignedIn:', isSignedIn);
+    
+    if (authLoaded === true && isSignedIn === false) {
+      console.log('🚫 Not signed in, redirecting to login');
+      window.location.href = '/login'; // Redirect to login page
+      return;
+    }
+  }, [authLoaded, isSignedIn]);
+
+  // ✅ Show loading while Clerk is checking auth
+  if (!authLoaded) {
+    console.log('⏳ Waiting for Clerk to load...');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Don't render if not signed in
+  if (!isSignedIn) {
+    console.log('🔒 Not signed in, returning null');
+    return null;
+  }
+
+  console.log('✅ User is signed in, rendering GigCreate');
 
   const validate = () => {
     if (!title.trim()) return 'Title is required';
@@ -54,14 +88,6 @@ const GigCreate = () => {
       setLoading(false);
     }
   };
-
-  if (!isLoaded || !client) {
-    return (
-      <div className="min-h-[40vh] flex items-center justify-center">
-        <p className="text-sm font-medium text-slate-600">Preparing client...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 text-slate-50">

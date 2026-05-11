@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApiClient } from '../hooks/useApiClient';
+import { useAuth } from '@clerk/clerk-react';
 import GigCard from '../components/domain/GigCard';
 import AdvancedGigFilters from '../components/domain/AdvancedGigFilters';
 
 const GigFeed = () => {
   const navigate = useNavigate();
-  const { client, isLoaded } = useApiClient();
+  const { isSignedIn, isLoaded: authLoaded, user } = useAuth();
+  const { client, isLoaded: apiLoaded } = useApiClient();
 
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -26,6 +28,41 @@ const GigFeed = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // ✅ PROTECT: Check auth on mount
+    // ✅ PROTECT: Check auth on mount
+    // ✅ PROTECT: Check auth on mount
+  useEffect(() => {
+    console.log('🔍 GigFeed mounted - authLoaded:', authLoaded, 'isSignedIn:', isSignedIn);
+    
+    // Only redirect after Clerk has fully loaded
+    if (authLoaded === true && isSignedIn === false) {
+      console.log('🚫 Not signed in, redirecting to login');
+      window.location.href = '/login'; // Redirect to login page
+      return;
+    }
+  }, [authLoaded, isSignedIn]);
+
+  // ✅ Show loading while Clerk is checking auth
+  if (!authLoaded) {
+    console.log('⏳ Waiting for Clerk to load...');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Don't render if not signed in
+  if (!isSignedIn) {
+    console.log('🔒 Not signed in, returning null');
+    return null;
+  }
+
+  console.log('✅ User is signed in, rendering GigFeed');
+
   const query = useMemo(() => {
     const params = {};
     if (search.trim()) params.search = search.trim();
@@ -44,7 +81,7 @@ const GigFeed = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await client.get('/api/gigs', { params: query });
+        const response = await client.get('/gigs', { params: query });
         if (!active) return;
         const data = response?.data;
         const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
@@ -103,14 +140,6 @@ const GigFeed = () => {
 
   const hasActiveFilters = search || advancedFilters.minBudget || advancedFilters.maxBudget || 
                           advancedFilters.startDate || advancedFilters.endDate;
-
-  if (!isLoaded || !client) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-sm font-medium text-slate-600">Preparing client...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">

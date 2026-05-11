@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import { useAuthUser } from '../hooks/useAuthUser';
 
 const Home = () => {
   const { authUser } = useAuthUser();
+  const { isSignedIn } = useAuth();
 
   return (
-    <div className="min-h-screen -mt-20">
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0">
           <div 
@@ -42,7 +44,7 @@ const Home = () => {
             and build your portfolio in a streamlined marketplace designed for growth.
           </p>
 
-          {/* CTA Buttons */}
+                    {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/gigs/new"
