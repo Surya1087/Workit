@@ -5,7 +5,7 @@ const listGigs = async (req, res) => {
     const { status = 'open', limit = 20, skip = 0 } = req.query;
 
     const query = {};
-    if (status) {
+    if (status && status !== 'all') {
       query.status = status;
     }
 
@@ -128,7 +128,7 @@ const getMyGigs = async (req, res) => {
     const { status, limit = 20, skip = 0 } = req.query;
 
     const query = { ownerId: userId };
-    if (status) {
+    if (status && status !== 'all') {
       query.status = status;
     }
 
@@ -176,6 +176,19 @@ const getMyGigs = async (req, res) => {
 const createGig = async (req, res) => {
   try {
     const { title, description, budget } = req.body;
+    
+    // DEBUG: Check if user is attached
+    console.log('🔍 CREATE GIG - req.user:', req.user);
+    console.log('🔍 CREATE GIG - Authorization header:', req.headers.authorization);
+    console.log('🔍 CREATE GIG - Request body:', req.body);
+    
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required. User not found in request.',
+      });
+    }
+
     const ownerId = req.user._id;
 
     // Validation
@@ -227,12 +240,13 @@ const createGig = async (req, res) => {
       updatedAt: gig.updatedAt,
     };
 
+    console.log('✅ Gig created successfully:', data);
     return res.status(201).json({
       success: true,
       data,
     });
   } catch (error) {
-    console.error('Error creating gig:', error);
+    console.error('❌ Error creating gig:', error);
 
     if (error.name === 'ValidationError') {
       const details = Object.values(error.errors).map((err) => err.message);
