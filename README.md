@@ -212,5 +212,4 @@ When a freelancer is hired, the server immediately emits a Socket.io event to th
  `npm run dev` : Start server with hot reload (nodemon) 
  `npm start` : Start server in production mode 
 
-*  License :
-This project is open source. See the repository for license details.
+
