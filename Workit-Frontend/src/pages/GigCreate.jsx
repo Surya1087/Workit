@@ -6,7 +6,7 @@ import Textarea from '../components/ui/Textarea';
 import { useApiClient } from '../hooks/useApiClient';
 
 const GigCreate = () => {
-  const { client, isLoaded } = useApiClient();
+  const { client, isLoaded, ensureToken, authError } = useApiClient();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -36,6 +36,11 @@ const GigCreate = () => {
     setLoading(true);
     setError(null);
     try {
+      const token = await ensureToken();
+      if (!token) {
+        throw new Error(authError || 'Authentication token is unavailable. Please refresh and try again.');
+      }
+
       const payload = {
         title: title.trim(),
         description: description.trim(),
@@ -48,7 +53,7 @@ const GigCreate = () => {
       if (!id) throw new Error('Missing gig id from response');
       navigate(`/gigs/${id}`);
     } catch (err) {
-      const message = err?.response?.data?.message || err.message || 'Failed to create gig';
+      const message = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Failed to create gig';
       setError(message);
     } finally {
       setLoading(false);

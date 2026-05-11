@@ -175,7 +175,23 @@ const getMyGigs = async (req, res) => {
 
 const createGig = async (req, res) => {
   try {
+    console.log('[gigs] Create gig request received', {
+      method: req.method,
+      path: req.originalUrl,
+      hasAuthorizationHeader: Boolean(req.headers.authorization),
+      authenticatedUserId: req.user?._id?.toString() || null,
+    });
+
     const { title, description, budget } = req.body;
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required to create a gig',
+        message: 'Authentication required to create a gig',
+      });
+    }
+
     const ownerId = req.user._id;
 
     // Validation
@@ -183,6 +199,7 @@ const createGig = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Title is required',
+        message: 'Title is required',
       });
     }
 
@@ -190,6 +207,7 @@ const createGig = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Description is required',
+        message: 'Description is required',
       });
     }
 
@@ -197,6 +215,7 @@ const createGig = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Budget must be at least 1',
+        message: 'Budget must be at least 1',
       });
     }
 
@@ -206,6 +225,11 @@ const createGig = async (req, res) => {
       description: description.trim(),
       budget: Number(budget),
       ownerId,
+    });
+
+    console.log('[gigs] Gig created successfully', {
+      gigId: gig._id.toString(),
+      ownerId: ownerId.toString(),
     });
 
     await gig.populate('ownerId', 'name email');
@@ -239,6 +263,7 @@ const createGig = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
+        message: 'Validation failed',
         details,
       });
     }
@@ -246,6 +271,7 @@ const createGig = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to create gig',
+      message: 'Failed to create gig',
     });
   }
 };
