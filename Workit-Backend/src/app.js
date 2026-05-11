@@ -9,7 +9,6 @@ const createApp = () => {
 
   app.use(helmet());
 
-  // ✅ FIXED CORS
  const allowedOrigins = [
   'https://workit-neon.vercel.app',  // ADD THIS
   'https://gigflow-frontend-rust.vercel.app',
@@ -33,7 +32,7 @@ const createApp = () => {
     })
   );
 
-  // ✅ Important: handle preflight properly
+  // To handle preflight properly
   app.options('*', cors());
 
   if (process.env.NODE_ENV !== 'test') {
