@@ -1,24 +1,37 @@
 const { clerkClient } = require('@clerk/express');
 const User = require('../models/User');
 
+const sendAuthError = (req, res, statusCode, error, details) => {
+  console.warn('[auth] Authentication failed', {
+    method: req.method,
+    path: req.originalUrl,
+    error,
+    details,
+  });
+
+  return res.status(statusCode).json({
+    success: false,
+    error,
+    message: error,
+    ...(details ? { details } : {}),
+  });
+};
+
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authorization header missing or malformed',
+      return sendAuthError(req, res, 401, 'Authorization header missing or malformed', {
+        authorizationHeaderPresent: Boolean(authHeader),
+        expectedFormat: 'Authorization: Bearer <Clerk token>',
       });
     }
 
     const token = authHeader.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        error: 'Token not provided',
-      });
+      return sendAuthError(req, res, 401, 'Token not provided');
     }
 
     // Verify the Clerk JWT using the token
@@ -29,20 +42,15 @@ const authenticate = async (req, res, next) => {
         secretKey: process.env.CLERK_SECRET_KEY,
       });
     } catch (err) {
-      console.log('Token verification failed:', err.message);
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid or expired token',
+      return sendAuthError(req, res, 401, 'Invalid or expired token', {
+        reason: err.message,
       });
     }
 
     const clerkUserId = verifiedToken.sub;
 
     if (!clerkUserId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token payload',
-      });
+      return sendAuthError(req, res, 401, 'Invalid token payload');
     }
 
     // Find user in MongoDB
@@ -54,9 +62,8 @@ const authenticate = async (req, res, next) => {
         clerkUser = await clerkClient.users.getUser(clerkUserId);
       } catch (clerkError) {
         console.error('Failed to fetch user from Clerk:', clerkError.message);
-        return res.status(401).json({
-          success: false,
-          error: 'Failed to fetch user data',
+        return sendAuthError(req, res, 401, 'Failed to fetch user data', {
+          reason: clerkError.message,
         });
       }
 
@@ -69,10 +76,7 @@ const authenticate = async (req, res, next) => {
         'User';
 
       if (!email) {
-        return res.status(401).json({
-          success: false,
-          error: 'Email not found in Clerk user data',
-        });
+        return sendAuthError(req, res, 401, 'Email not found in Clerk user data');
       }
 
       // Create user in MongoDB
@@ -85,9 +89,8 @@ const authenticate = async (req, res, next) => {
         console.log('User created successfully:', user._id);
       } catch (createError) {
         console.error('User creation failed:', createError);
-        return res.status(401).json({
-          success: false,
-          error: 'Failed to create user',
+        return sendAuthError(req, res, 401, 'Failed to create user', {
+          reason: createError.message,
         });
       }
     }
@@ -99,9 +102,8 @@ const authenticate = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    return res.status(401).json({
-      success: false,
-      error: 'Authentication failed',
+    return sendAuthError(req, res, 401, 'Authentication failed', {
+      reason: error.message,
     });
   }
 };

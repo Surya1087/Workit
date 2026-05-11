@@ -37,7 +37,7 @@ Get the Workit Frontend  : https://github.com/Surya1087/Workit/tree/main/Workit-
 
 See `.env.example`:
 - `VITE_API_BASE_URL` - Backend API URL
-- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk public key
+- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk public key (`pk_live_...` in production deployments such as Vercel)
 
 * Notification System :
 

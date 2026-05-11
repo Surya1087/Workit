@@ -82,7 +82,7 @@ src/
 
 ```env
 VITE_API_BASE_URL=http://localhost:5000      # Backend API URL
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...       # Clerk publishable key
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...       # Clerk publishable key (use pk_live_... in production)
 ```
 
 *  Available Scripts
@@ -165,7 +165,7 @@ src/
 
 ```env
 MONGODB_URI=mongodb://localhost:27017/workit    # MongoDB connection string
-CLERK_SECRET_KEY=sk_test_...                    # Clerk secret key
+CLERK_SECRET_KEY=sk_test_...                    # Clerk secret key (use matching sk_live_... in Render/production)
 PORT=5000                                        # Server port
 CLIENT_URL=http://localhost:5173                 # Frontend URL (CORS)
 ```
@@ -211,5 +211,4 @@ When a freelancer is hired, the server immediately emits a Socket.io event to th
  Command : Description ->
  `npm run dev` : Start server with hot reload (nodemon) 
  `npm start` : Start server in production mode 
-
 
