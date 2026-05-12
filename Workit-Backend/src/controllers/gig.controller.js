@@ -269,6 +269,56 @@ const createGig = async (req, res) => {
   }
 };
 
+// ✅ NEW: Delete gig function
+const deleteGig = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const gig = await Gig.findById(id);
+
+    if (!gig) {
+      return res.status(404).json({
+        success: false,
+        error: 'Gig not found',
+      });
+    }
+
+    // Check if user is the owner
+    if (gig.ownerId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: 'You are not authorized to delete this gig',
+      });
+    }
+
+    // Delete the gig
+    await Gig.findByIdAndDelete(id);
+
+    console.log('✅ Gig deleted successfully:', id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gig deleted successfully',
+      data: { id },
+    });
+  } catch (error) {
+    console.error('❌ Error deleting gig:', error);
+
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({
+        success: false,
+        error: 'Gig not found',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete gig',
+    });
+  }
+};
+
 const closeGig = async (req, res) => {
   try {
     const { id } = req.params;
@@ -338,5 +388,6 @@ module.exports = {
   getGigById,
   getMyGigs,
   createGig,
+  deleteGig,
   closeGig,
 };

@@ -4,19 +4,24 @@ const { authenticate, optionalAuthenticate } = require('../middleware');
 
 const router = express.Router();
 
-// ✅ FIXED: Added optionalAuthenticate middleware to attach user if logged in
-router.get('/', optionalAuthenticate, gigController.listGigs);
+// ✅ IMPORTANT: Order matters! Specific routes BEFORE :id parameter routes
 
-// GET /api/gigs/my - Get user's own gigs (auth required) - MUST be before /:id
+// GET /api/gigs/my - Get user's own gigs (auth required) - MUST be BEFORE /:id
 router.get('/my', authenticate, gigController.getMyGigs);
 
-// GET /api/gigs/:id - Get gig by id (public, but checks auth if present for ownership)
-router.get('/:id', optionalAuthenticate, gigController.getGigById);
+// GET /api/gigs - List open gigs (public)
+router.get('/', optionalAuthenticate, gigController.listGigs);
 
 // POST /api/gigs - Create gig (auth required)
 router.post('/', authenticate, gigController.createGig);
 
-// PATCH /api/gigs/:id/close - Close gig without selecting anyone (auth required, owner only)
+// DELETE /api/gigs/:id - Delete gig (auth required, owner only) - MUST be BEFORE /:id GET
+router.delete('/:id', authenticate, gigController.deleteGig);
+
+// PATCH /api/gigs/:id/close - Close gig (auth required, owner only)
 router.patch('/:id/close', authenticate, gigController.closeGig);
+
+// GET /api/gigs/:id - Get gig by id (public, but checks auth if present for ownership) - LAST!
+router.get('/:id', optionalAuthenticate, gigController.getGigById);
 
 module.exports = router;
