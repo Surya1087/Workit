@@ -1,300 +1,227 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useApiClient } from '../hooks/useApiClient';
-import { useSocket } from '../hooks/useSocket';
 
 const GigOwnerDashboard = () => {
-  const navigate = useNavigate();
-  const { client, isLoaded } = useApiClient();
-  const socket = useSocket();
-
+  const { client } = useApiClient();
+  
   const [gigs, setGigs] = useState([]);
-  const [bidCounts, setBidCounts] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [deletingId, setDeletingId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
-  // Fetch user's gigs
   useEffect(() => {
-    if (!client) return;
-
-    let active = true;
-    const fetchGigs = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await client.get('/api/gigs/my');
-        if (!active) return;
-        const data = response?.data;
-        const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-        setGigs(list);
-
-        // Fetch bid counts for each gig
-        const counts = {};
-        for (const gig of list) {
-          try {
-            const bidsResponse = await client.get(`/api/gigs/${gig.id}/bids`);
-            counts[gig.id] = bidsResponse?.data?.count || 0;
-          } catch (err) {
-            counts[gig.id] = 0;
-          }
-        }
-        setBidCounts(counts);
-      } catch (err) {
-        if (!active) return;
-        const message = err?.response?.data?.error || 'Failed to load gigs';
-        setError(message);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    fetchGigs();
-
-    return () => {
-      active = false;
-    };
+    fetchMyGigs();
   }, [client]);
 
-  // Listen for new bids via socket
-  useEffect(() => {
-    if (!socket) return;
+  const fetchMyGigs = async () => {
+    if (!client) return;
 
-    const handleNewBid = (data) => {
-      console.log('New bid received:', data);
-      setBidCounts((prev) => ({
-        ...prev,
-        [data.gigId]: (prev[data.gigId] || 0) + 1,
-      }));
-    };
-
-    socket.on('bid:received', handleNewBid);
-
-    return () => {
-      socket.off('bid:received', handleNewBid);
-    };
-  }, [socket]);
-
-  // Filter gigs
-  const filteredGigs = useMemo(() => {
-    let filtered = [...gigs];
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((gig) => gig.status === statusFilter);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await client.get('/gigs/my');
+      const data = response?.data;
+      const list = Array.isArray(data?.data) ? data.data : [];
+      setGigs(list);
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to load your gigs';
+      setError(message);
+    } finally {
+      setLoading(false);
     }
-
-    return filtered;
-  }, [gigs, statusFilter]);
-
-  // Calculate stats
-  const stats = useMemo(() => {
-    return {
-      total: gigs.length,
-      open: gigs.filter((g) => g.status === 'open').length,
-      assigned: gigs.filter((g) => g.status === 'assigned').length,
-      closed: gigs.filter((g) => g.status === 'closed').length,
-      totalBids: Object.values(bidCounts).reduce((sum, count) => sum + count, 0),
-    };
-  }, [gigs, bidCounts]);
-
-  // Format currency
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
-  // Format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  const handleDeleteGig = async (gigId, gigTitle) => {
+    if (!client) return;
 
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    });
+    setDeletingId(gigId);
+    setShowDeleteConfirm(null); // ✅ Close dialog immediately
+    
+    try {
+      await client.delete(`/gigs/${gigId}`);
+      
+      // Remove gig from state
+      setGigs((prevGigs) => prevGigs.filter((gig) => gig.id !== gigId));
+      
+      setSuccessMessage(`"${gigTitle}" deleted successfully`);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to delete gig';
+      setError(message);
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
-  // Get status color
-  const getStatusColor = (status) => {
-    const colors = {
-      open: 'bg-emerald-900/50 text-emerald-200 border-emerald-700',
-      assigned: 'bg-blue-900/50 text-blue-200 border-blue-700',
-      closed: 'bg-zinc-800 text-zinc-200 border-zinc-700',
-    };
-    return colors[status] || 'bg-zinc-800 text-zinc-200 border-zinc-700';
-  };
-
-  if (!isLoaded || !client) {
+  if (loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-sm font-medium text-zinc-600">Preparing client...</p>
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-8 text-center">
+        <div className="inline-flex items-center gap-3 text-zinc-300">
+          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span>Loading your gigs...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && gigs.length === 0) {
+    return (
+      <div className="rounded-2xl border border-rose-800 bg-rose-900/30 p-6 text-center">
+        <div className="flex items-center justify-center gap-3 text-rose-200">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (gigs.length === 0) {
+    return (
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-12 text-center space-y-4">
+        <svg className="w-16 h-16 text-zinc-600 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m0 0h6m-6-6v-6m0 6v6m0-6h-6m0 0H0" />
+        </svg>
+        <div className="space-y-2">
+          <p className="text-lg font-semibold text-white">No gigs posted yet</p>
+          <p className="text-sm text-zinc-400">Start by posting a gig to find freelancers for your project</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/60 backdrop-blur-sm border border-zinc-700/50 mb-2">
-          <svg className="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <span className="text-sm text-zinc-300">Your Gigs</span>
-        </div>
-        <h1 className="text-4xl md:text-5xl font-bold text-white">Gig Owner Dashboard</h1>
-        <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
-          Manage your posted gigs and view incoming bids.
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-5">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-2">
-          <p className="text-sm text-zinc-400">Total Gigs</p>
-          <p className="text-3xl font-bold text-white">{stats.total}</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-800 bg-emerald-900/20 p-6 space-y-2">
-          <p className="text-sm text-emerald-300">Open</p>
-          <p className="text-3xl font-bold text-emerald-200">{stats.open}</p>
-        </div>
-        <div className="rounded-2xl border border-blue-800 bg-blue-900/20 p-6 space-y-2">
-          <p className="text-sm text-blue-300">Assigned</p>
-          <p className="text-3xl font-bold text-blue-200">{stats.assigned}</p>
-        </div>
-        <div className="rounded-2xl border border-amber-800 bg-amber-900/20 p-6 space-y-2">
-          <p className="text-sm text-amber-300">Total Bids</p>
-          <p className="text-3xl font-bold text-amber-200">{stats.totalBids}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-2">
-          <p className="text-sm text-zinc-400">Avg Bid/Gig</p>
-          <p className="text-3xl font-bold text-white">
-            {stats.total > 0 ? (stats.totalBids / stats.total).toFixed(1) : '0'}
-          </p>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', 'open', 'assigned', 'closed'].map((status) => (
-          <button
-            key={status}
-            onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition capitalize ${
-              statusFilter === status
-                ? 'bg-white text-zinc-950'
-                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-            }`}
-          >
-            {status}
-          </button>
-        ))}
-      </div>
-
-      {loading && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-8 text-center">
-          <div className="inline-flex items-center gap-3 text-zinc-300">
-            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            <span>Loading gigs...</span>
+    <div className="space-y-6">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="rounded-2xl border border-emerald-800 bg-emerald-900/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-emerald-200">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{successMessage}</span>
+            </div>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-emerald-200 hover:text-emerald-100"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
 
-      {!loading && error && (
-        <div className="rounded-2xl border border-rose-800 bg-rose-900/30 p-6 text-center">
-          <div className="flex items-center justify-center gap-3 text-rose-200">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{error}</span>
+      {/* Error Message */}
+      {error && gigs.length > 0 && (
+        <div className="rounded-2xl border border-rose-800 bg-rose-900/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-rose-200">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-rose-200 hover:text-rose-100"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
 
-      {!loading && !error && filteredGigs.length === 0 && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-12 text-center space-y-4">
-          <svg className="w-16 h-16 text-zinc-600 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <div className="space-y-2">
-            <p className="text-lg font-semibold text-white">No gigs found</p>
-            <p className="text-sm text-zinc-400">
-              {statusFilter !== 'all'
-                ? `No ${statusFilter} gigs at the moment`
-                : 'Create your first gig to get started'}
+      <h2 className="text-2xl font-bold text-white mb-6">Your Posted Gigs ({gigs.length})</h2>
+      
+      <div className="grid gap-6 md:grid-cols-2">
+        {gigs.map((gig) => (
+          <div key={gig.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-zinc-700 transition-all relative">
+            {/* Header with Status */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white mb-2">{gig.title}</h3>
+                <div className="flex items-center gap-3">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                    gig.status === 'open'
+                      ? 'bg-emerald-900/30 text-emerald-200 border border-emerald-800'
+                      : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                  }`}>
+                    {gig.status.charAt(0).toUpperCase() + gig.status.slice(1)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className="text-zinc-400 text-sm mb-4 line-clamp-2">
+              {gig.description}
             </p>
-          </div>
-        </div>
-      )}
 
-      {!loading && !error && filteredGigs.length > 0 && (
-        <div className="space-y-4">
-          {filteredGigs.map((gig) => {
-            const bidCount = bidCounts[gig.id] || 0;
-            return (
-              <div
-                key={gig.id}
-                className="rounded-2xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900/70 p-6 transition cursor-pointer"
-                onClick={() => navigate(`/gigs/${gig.id}`)}
+            {/* Budget */}
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-sm text-zinc-400">Budget</span>
+              <span className="text-2xl font-bold text-white">${gig.budget}</span>
+            </div>
+
+            {/* Dates */}
+            <div className="mb-6 space-y-2 text-xs text-zinc-500">
+              <p>Posted: {new Date(gig.createdAt).toLocaleDateString()}</p>
+              <p>Last updated: {new Date(gig.updatedAt).toLocaleDateString()}</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(gig.id)}
+                disabled={deletingId === gig.id}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-rose-900/20 text-rose-200 hover:bg-rose-900/40 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 transition border border-rose-800"
               >
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  {/* Left Section */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-white truncate">{gig.title}</h3>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(gig.status)} whitespace-nowrap capitalize`}>
-                        {gig.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-zinc-400 line-clamp-2 mb-3">{gig.description}</p>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="text-zinc-400">
-                        Posted: <span className="text-white font-semibold">{formatDate(gig.createdAt)}</span>
-                      </span>
-                    </div>
-                  </div>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {deletingId === gig.id ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
 
-                  {/* Right Section */}
-                  <div className="flex items-center gap-6 md:flex-col md:items-end md:gap-4">
-                    <div className="text-right">
-                      <p className="text-sm text-zinc-400">Budget</p>
-                      <p className="text-2xl font-bold text-white">{formatCurrency(gig.budget)}</p>
-                    </div>
-                    {bidCount > 0 && (
-                      <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-900/50 border border-amber-700">
-                        <span className="text-lg font-bold text-amber-200">{bidCount}</span>
-                        <span className="text-sm text-amber-300">{bidCount === 1 ? 'bid' : 'bids'}</span>
-                      </div>
-                    )}
-                    <div className="px-4 py-2 rounded-lg bg-zinc-800/50 text-zinc-300">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
+            {/* Delete Confirmation Dialog */}
+            {showDeleteConfirm === gig.id && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full">
+                  <h3 className="text-lg font-bold text-white mb-2">Delete Gig?</h3>
+                  <p className="text-zinc-400 mb-6">
+                    Are you sure you want to delete "<span className="font-semibold">{gig.title}</span>"? This action cannot be undone.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowDeleteConfirm(null)}
+                      className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 text-white hover:bg-zinc-700 transition font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGig(gig.id, gig.title)}
+                      disabled={deletingId === gig.id}
+                      className="flex-1 px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                    >
+                      {deletingId === gig.id ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

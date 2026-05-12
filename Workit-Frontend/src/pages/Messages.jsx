@@ -17,6 +17,10 @@ const Messages = () => {
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedUserInfo, setSelectedUserInfo] = useState(null);
+  const [deletingConvoId, setDeletingConvoId] = useState(null);
+  const [deleteConvoConfirm, setDeleteConvoConfirm] = useState(null);
+  const [deletingMessageId, setDeletingMessageId] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const messagesEndRef = useRef(null);
 
   // Check for user parameter in URL
@@ -182,6 +186,53 @@ const Messages = () => {
     }
   };
 
+  // Delete entire conversation
+  const handleDeleteConversation = async (userId, userName) => {
+    if (!client) return;
+
+    setDeletingConvoId(userId);
+    try {
+      await client.delete(`/api/messages/${userId}`);
+      
+      // Remove conversation from list
+      setConversations((prev) => prev.filter((c) => c.userId !== userId));
+      
+      // Clear messages and selection
+      if (selectedUserId === userId) {
+        setSelectedUserId(null);
+        setMessages([]);
+        setSelectedUserInfo(null);
+      }
+      
+      setSuccessMessage(`Conversation with ${userName} deleted`);
+      setDeleteConvoConfirm(null);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    } finally {
+      setDeletingConvoId(null);
+    }
+  };
+
+  // Delete specific message
+  const handleDeleteMessage = async (messageId) => {
+    if (!client || !selectedUserId) return;
+
+    setDeletingMessageId(messageId);
+    try {
+      await client.delete(`/api/messages/${selectedUserId}/${messageId}`);
+      
+      // Remove message from list
+      setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
+
   // Format time
   const formatTime = (dateString) => {
     const date = new Date(dateString);
@@ -225,6 +276,26 @@ const Messages = () => {
         <h1 className="text-4xl md:text-5xl font-bold text-white">Messages</h1>
       </div>
 
+      {/* Success Message */}
+      {successMessage && (
+        <div className="rounded-2xl border border-emerald-800 bg-emerald-900/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-emerald-200">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{successMessage}</span>
+            </div>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-emerald-200 hover:text-emerald-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages Container */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-96 md:h-[600px] rounded-2xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
         {/* Conversations List */}
@@ -239,24 +310,67 @@ const Messages = () => {
               </div>
             ) : (
               conversations.map((convo) => (
-                <button
+                <div
                   key={convo.userId}
-                  onClick={() => setSelectedUserId(convo.userId)}
-                  className={`w-full text-left border-b border-zinc-800 p-4 hover:bg-zinc-800/50 transition ${
+                  className={`border-b border-zinc-800 hover:bg-zinc-800/50 transition flex items-center justify-between px-4 py-3 ${
                     selectedUserId === convo.userId ? 'bg-zinc-800/70' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="font-semibold text-white truncate text-sm">{convo.userName}</p>
-                    {convo.unreadCount > 0 && (
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-zinc-900 text-xs font-bold flex-shrink-0">
-                        {convo.unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-zinc-400 truncate">{convo.lastMessage}</p>
-                  <p className="text-xs text-zinc-500 mt-1">{formatTime(convo.lastMessageTime)}</p>
-                </button>
+                  {/* Conversation Info */}
+                  <button
+                    onClick={() => setSelectedUserId(convo.userId)}
+                    className="flex-1 text-left min-w-0"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="font-semibold text-white truncate text-sm">{convo.userName}</p>
+                      {convo.unreadCount > 0 && (
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-zinc-900 text-xs font-bold flex-shrink-0">
+                          {convo.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 truncate">{convo.lastMessage}</p>
+                    <p className="text-xs text-zinc-500 mt-1">{formatTime(convo.lastMessageTime)}</p>
+                  </button>
+
+                  {/* Delete Button - Always Visible */}
+                  <button
+                    onClick={() => setDeleteConvoConfirm(convo.userId)}
+                    className="ml-2 p-2 rounded-lg bg-rose-900/20 text-rose-200 hover:bg-rose-900/40 flex-shrink-0 transition"
+                    title="Delete conversation"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+
+                  {/* Delete Confirmation Dialog */}
+                  {deleteConvoConfirm === convo.userId && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full">
+                        <h3 className="text-lg font-bold text-white mb-2">Delete Conversation?</h3>
+                        <p className="text-zinc-400 mb-6">
+                          Are you sure you want to delete all messages with <span className="font-semibold">{convo.userName}</span>? This cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setDeleteConvoConfirm(null)}
+                            className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 text-white hover:bg-zinc-700 transition font-medium"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleDeleteConversation(convo.userId, convo.userName)}
+                            disabled={deletingConvoId === convo.userId}
+                            className="flex-1 px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                          >
+                            {deletingConvoId === convo.userId ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </div>
@@ -284,10 +398,11 @@ const Messages = () => {
                     const msgSenderId = typeof msg.senderId === 'object' ? msg.senderId?._id || msg.senderId?.id : msg.senderId;
                     const currentUserId = authUser?.id || authUser?._id;
                     const isOwn = msgSenderId?.toString?.() === currentUserId?.toString?.();
+                    
                     return (
                       <div
                         key={msg._id}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group items-end gap-2`}
                       >
                         <div
                           className={`max-w-xs px-4 py-3 rounded-lg break-words ${
@@ -301,6 +416,20 @@ const Messages = () => {
                             {formatTime(msg.createdAt)}
                           </p>
                         </div>
+
+                        {/* Delete Message Button (only for own messages) */}
+                        {isOwn && (
+                          <button
+                            onClick={() => handleDeleteMessage(msg._id)}
+                            disabled={deletingMessageId === msg._id}
+                            className="p-1 rounded text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition disabled:opacity-50 flex-shrink-0"
+                            title="Delete message"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     );
                   })
