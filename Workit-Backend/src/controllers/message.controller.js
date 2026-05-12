@@ -281,9 +281,118 @@ const markAsRead = async (req, res) => {
   }
 };
 
+// ✅ NEW: Delete entire conversation with a user
+const deleteConversation = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user._id;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required',
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid user ID format',
+      });
+    }
+
+    // Delete all messages in conversation between current user and target user
+    const result = await Message.deleteMany({
+      $or: [
+        { senderId: currentUserId, receiverId: userId },
+        { senderId: userId, receiverId: currentUserId },
+      ],
+    });
+
+    console.log(`✅ Deleted ${result.deletedCount} messages in conversation with user ${userId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversation deleted successfully',
+      data: {
+        userId,
+        deletedCount: result.deletedCount,
+      },
+    });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete conversation',
+    });
+  }
+};
+
+// ✅ NEW: Delete specific message
+const deleteMessage = async (req, res) => {
+  try {
+    const { userId, messageId } = req.params;
+    const currentUserId = req.user._id;
+
+    if (!messageId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message ID is required',
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid message ID format',
+      });
+    }
+
+    // Find message and verify ownership
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        error: 'Message not found',
+      });
+    }
+
+    // Only message sender can delete
+    if (message.senderId.toString() !== currentUserId.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only delete your own messages',
+      });
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    console.log(`✅ Deleted message ${messageId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Message deleted successfully',
+      data: {
+        messageId,
+      },
+    });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete message',
+    });
+  }
+};
+
 module.exports = {
   sendMessage,
   getConversation,
   getConversations,
   markAsRead,
+  deleteConversation,
+  deleteMessage,
 };

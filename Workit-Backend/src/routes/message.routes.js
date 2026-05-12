@@ -5,6 +5,8 @@ const {
   getConversation,
   getConversations,
   markAsRead,
+  deleteConversation,
+  deleteMessage,
 } = require('../controllers/message.controller');
 
 const router = express.Router();
@@ -17,6 +19,12 @@ router.post('/', sendMessage);
 
 // Get all conversations
 router.get('/', getConversations);
+
+// ✅ DELETE /api/messages/:userId - Delete entire conversation with user
+router.delete('/:userId', deleteConversation);
+
+// ✅ DELETE /api/messages/:userId/:messageId - Delete specific message
+router.delete('/:userId/:messageId', deleteMessage);
 
 // Get conversation with a specific user
 router.get('/:userId', getConversation);
