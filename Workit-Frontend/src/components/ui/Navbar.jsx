@@ -1,13 +1,23 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthUser } from '../../hooks/useAuthUser';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { NotificationBell } from './NotificationBell';
 
 export const Navbar = () => {
   const { authUser } = useAuthUser();
+  const { isSignedIn, isLoaded } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Auto-redirect after sign-in
+  useEffect(() => {
+    if (isLoaded && isSignedIn && (location.pathname === '/login' || location.pathname === '/register')) {
+      navigate('/gigs', { replace: true });
+    }
+  }, [isLoaded, isSignedIn, location.pathname, navigate]);
 
   const navLinks = [
     { to: '/gigs', label: 'Browse Gigs' },
@@ -54,13 +64,14 @@ export const Navbar = () => {
         {/* Right Side - Auth */}
         <div className="hidden md:flex items-center gap-3">
           <SignedOut>
-            <SignInButton mode="modal">
-              <button className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all h-8 rounded-md gap-1.5 px-3 text-zinc-400 hover:text-white hover:bg-zinc-800">
-                Sign In
-              </button>
-            </SignInButton>
             <Link
-              to="/register"
+              to="/login"
+              className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all h-8 rounded-md gap-1.5 px-3 text-zinc-400 hover:text-white hover:bg-zinc-800"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/login"
               className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all h-8 gap-1.5 bg-white text-zinc-950 hover:bg-zinc-200 rounded-full px-4"
             >
               Get Started
@@ -132,6 +143,26 @@ export const Navbar = () => {
                   </Link>
                 );
               })}
+
+              {/* Mobile Auth Buttons */}
+              <SignedOut>
+                <div className="border-t border-zinc-700 mt-4 pt-4 space-y-2">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-4 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition text-center"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-4 py-2 rounded-lg bg-white text-zinc-950 hover:bg-zinc-200 transition text-center font-medium"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              </SignedOut>
             </div>
           </div>
         )}

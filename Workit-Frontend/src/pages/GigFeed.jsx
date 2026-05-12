@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApiClient } from '../hooks/useApiClient';
 import { useAuth } from '@clerk/clerk-react';
+import { useAuthUser } from '../hooks/useAuthUser';
 import GigCard from '../components/domain/GigCard';
 import AdvancedGigFilters from '../components/domain/AdvancedGigFilters';
 
@@ -9,8 +10,9 @@ const GigFeed = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded: authLoaded, user } = useAuth();
   const { client, isLoaded: apiLoaded } = useApiClient();
+  const { authUser } = useAuthUser();
 
-  const [gigs, setGigs] = useState([]);
+  const [allGigs, setAllGigs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -28,23 +30,14 @@ const GigFeed = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // ✅ PROTECT: Check auth on mount
-    // ✅ PROTECT: Check auth on mount
-    // ✅ PROTECT: Check auth on mount
   useEffect(() => {
-    console.log('🔍 GigFeed mounted - authLoaded:', authLoaded, 'isSignedIn:', isSignedIn);
-    
-    // Only redirect after Clerk has fully loaded
     if (authLoaded === true && isSignedIn === false) {
-      console.log('🚫 Not signed in, redirecting to login');
-      window.location.href = '/login'; // Redirect to login page
+      window.location.href = '/login';
       return;
     }
   }, [authLoaded, isSignedIn]);
 
-  // ✅ Show loading while Clerk is checking auth
   if (!authLoaded) {
-    console.log('⏳ Waiting for Clerk to load...');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-white text-center">
@@ -55,13 +48,9 @@ const GigFeed = () => {
     );
   }
 
-  // ✅ Don't render if not signed in
   if (!isSignedIn) {
-    console.log('🔒 Not signed in, returning null');
     return null;
   }
-
-  console.log('✅ User is signed in, rendering GigFeed');
 
   const query = useMemo(() => {
     const params = {};
@@ -85,7 +74,7 @@ const GigFeed = () => {
         if (!active) return;
         const data = response?.data;
         const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-        setGigs(list);
+        setAllGigs(list);
       } catch (err) {
         if (!active) return;
         const message = err?.response?.data?.message || 'Failed to load gigs';
@@ -102,7 +91,26 @@ const GigFeed = () => {
     };
   }, [client, query]);
 
-  // Sort gigs
+  // ✅ FILTER OUT CURRENT USER'S GIGS ON FRONTEND
+  const gigs = useMemo(() => {
+    if (!authUser || !authUser.id) return allGigs;
+
+    return allGigs.filter((gig) => {
+      // Get the owner's MongoDB ID from the gig
+      const gigOwnerId = gig.ownerId || gig.owner?.id;
+      const currentUserId = authUser.id;
+
+      // Filter out gigs owned by current user
+      const isMyGig = gigOwnerId === currentUserId;
+      
+      if (isMyGig) {
+        console.log('🚫 Filtered out my gig:', gig.title);
+      }
+
+      return !isMyGig;
+    });
+  }, [allGigs, authUser]);
+
   const sortedGigs = useMemo(() => {
     let sorted = [...gigs];
     
@@ -119,7 +127,6 @@ const GigFeed = () => {
     return sorted;
   }, [gigs, sortBy]);
 
-  // Toggle save gig
   const toggleSaveGig = (gigId) => {
     setSavedGigs((prev) => {
       const updated = prev.includes(gigId)
@@ -130,7 +137,6 @@ const GigFeed = () => {
     });
   };
 
-  // Count by status
   const statusCounts = useMemo(() => {
     return {
       all: gigs.length,
@@ -143,11 +149,10 @@ const GigFeed = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header Section */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/60 backdrop-blur-sm border border-zinc-700/50 mb-2">
           <svg className="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2h-3V3a1 1 0 00-1-1h-4a1 1 0 00-1 1v1H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" />
           </svg>
           <span className="text-sm text-zinc-300">Explore Opportunities</span>
         </div>
@@ -157,7 +162,6 @@ const GigFeed = () => {
         </p>
       </div>
 
-      {/* Search and Quick Actions */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-2xl p-4">
         <div className="flex-1 relative">
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -196,7 +200,6 @@ const GigFeed = () => {
         </div>
       </div>
 
-      {/* Status Filter Tabs */}
       <div className="flex gap-2 flex-wrap bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-2xl p-4">
         <button
           onClick={() => setStatusFilter('all')}
@@ -220,7 +223,6 @@ const GigFeed = () => {
         </button>
       </div>
 
-      {/* Sort Options */}
       <div className="flex items-center justify-between bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-2xl p-4">
         <div className="text-sm text-zinc-400">
           {sortedGigs.length} {sortedGigs.length === 1 ? 'gig' : 'gigs'} available
@@ -314,7 +316,6 @@ const GigFeed = () => {
         </div>
       )}
 
-      {/* Advanced Filters Modal */}
       <AdvancedGigFilters
         isOpen={showAdvancedFilters}
         onClose={() => setShowAdvancedFilters(false)}

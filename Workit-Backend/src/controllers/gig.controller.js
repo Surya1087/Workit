@@ -9,6 +9,14 @@ const listGigs = async (req, res) => {
       query.status = status;
     }
 
+    // ✅ EXCLUDE CURRENT USER'S GIGS IF AUTHENTICATED
+    if (req.user && req.user._id) {
+      console.log('✅ [listGigs] User authenticated, excluding gigs for user:', req.user._id);
+      query.ownerId = { $ne: req.user._id };
+    } else {
+      console.log('🔓 [listGigs] No user authenticated, returning all gigs');
+    }
+
     const gigs = await Gig.find(query)
       .populate('ownerId', 'name email')
       .sort({ createdAt: -1 })
@@ -34,6 +42,8 @@ const listGigs = async (req, res) => {
       updatedAt: gig.updatedAt,
     }));
 
+    console.log('✅ [listGigs] Returning', formattedGigs.length, 'gigs');
+
     return res.status(200).json({
       success: true,
       data: formattedGigs,
@@ -41,7 +51,7 @@ const listGigs = async (req, res) => {
       count: formattedGigs.length,
     });
   } catch (error) {
-    console.error('Error fetching gigs:', error);
+    console.error('❌ [listGigs] Error:', error);
 
     return res.status(500).json({
       success: false,
@@ -177,11 +187,6 @@ const createGig = async (req, res) => {
   try {
     const { title, description, budget } = req.body;
     
-    // DEBUG: Check if user is attached
-    console.log('🔍 CREATE GIG - req.user:', req.user);
-    console.log('🔍 CREATE GIG - Authorization header:', req.headers.authorization);
-    console.log('🔍 CREATE GIG - Request body:', req.body);
-    
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -240,7 +245,7 @@ const createGig = async (req, res) => {
       updatedAt: gig.updatedAt,
     };
 
-    console.log('✅ Gig created successfully:', data);
+    console.log('✅ Gig created successfully');
     return res.status(201).json({
       success: true,
       data,

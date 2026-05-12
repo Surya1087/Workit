@@ -4,8 +4,8 @@ const { authenticate, optionalAuthenticate } = require('../middleware');
 
 const router = express.Router();
 
-// GET /api/gigs - List open gigs (public)
-router.get('/', gigController.listGigs);
+// ✅ FIXED: Added optionalAuthenticate middleware to attach user if logged in
+router.get('/', optionalAuthenticate, gigController.listGigs);
 
 // GET /api/gigs/my - Get user's own gigs (auth required) - MUST be before /:id
 router.get('/my', authenticate, gigController.getMyGigs);

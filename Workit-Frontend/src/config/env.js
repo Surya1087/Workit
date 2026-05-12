@@ -2,6 +2,7 @@ const readEnv = (key, { optional = false, fallback } = {}) => {
   const value = import.meta.env[key];
   if (value === undefined || value === null || value === '') {
     if (optional) return fallback;
+    console.error(`❌ Missing environment variable: ${key}`);
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;
