@@ -14,22 +14,22 @@ const router = express.Router();
 // Protect all message routes
 router.use(authenticate);
 
-// Send a message
+// ✅ POST /api/messages - Send a message
 router.post('/', sendMessage);
 
-// Get all conversations
+// ✅ GET /api/messages - Get all conversations (BEFORE DELETE routes)
 router.get('/', getConversations);
 
-// ✅ DELETE /api/messages/:userId - Delete entire conversation with user
-router.delete('/:userId', deleteConversation);
-
-// ✅ DELETE /api/messages/:userId/:messageId - Delete specific message
+// ✅ DELETE /api/messages/:userId/:messageId - Delete specific message (BEFORE /:userId GET)
 router.delete('/:userId/:messageId', deleteMessage);
 
-// Get conversation with a specific user
+// ✅ DELETE /api/messages/:userId - Delete entire conversation
+router.delete('/:userId', deleteConversation);
+
+// ✅ GET /api/messages/:userId - Get conversation with specific user (LAST!)
 router.get('/:userId', getConversation);
 
-// Mark conversation as read
+// ✅ PUT /api/messages/:conversationUserId/read - Mark conversation as read
 router.put('/:conversationUserId/read', markAsRead);
 
 module.exports = router;
