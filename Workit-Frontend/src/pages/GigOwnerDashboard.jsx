@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApiClient } from '../hooks/useApiClient';
 
 const GigOwnerDashboard = () => {
   const { client } = useApiClient();
+  const navigate = useNavigate();
   
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -33,11 +35,11 @@ const GigOwnerDashboard = () => {
     }
   };
 
-  const handleDeleteGig = async (gigId, gigTitle) => {
+  const handleDeleteGig = async (gigId) => {
     if (!client) return;
 
     setDeletingId(gigId);
-    setShowDeleteConfirm(null); // ✅ Close dialog immediately
+    setShowDeleteConfirm(null);
     
     try {
       await client.delete(`/gigs/${gigId}`);
@@ -45,7 +47,7 @@ const GigOwnerDashboard = () => {
       // Remove gig from state
       setGigs((prevGigs) => prevGigs.filter((gig) => gig.id !== gigId));
       
-      setSuccessMessage(`"${gigTitle}" deleted successfully`);
+      setSuccessMessage(`Gig deleted successfully`);
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -56,6 +58,11 @@ const GigOwnerDashboard = () => {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  // ✅ NEW: Navigate to gig detail page
+  const handleGigClick = (gigId) => {
+    navigate(`/gigs/${gigId}`);
   };
 
   if (loading) {
@@ -145,15 +152,21 @@ const GigOwnerDashboard = () => {
       
       <div className="grid gap-6 md:grid-cols-2">
         {gigs.map((gig) => (
-          <div key={gig.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-zinc-700 transition-all relative">
+          <div 
+            key={gig.id} 
+            className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-zinc-700 transition-all cursor-pointer group"
+            onClick={() => handleGigClick(gig.id)}
+          >
             {/* Header with Status */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-white mb-2">{gig.title}</h3>
+                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition">{gig.title}</h3>
                 <div className="flex items-center gap-3">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                     gig.status === 'open'
                       ? 'bg-emerald-900/30 text-emerald-200 border border-emerald-800'
+                      : gig.status === 'assigned'
+                      ? 'bg-amber-900/30 text-amber-200 border border-amber-800'
                       : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
                   }`}>
                     {gig.status.charAt(0).toUpperCase() + gig.status.slice(1)}
@@ -181,8 +194,27 @@ const GigOwnerDashboard = () => {
 
             {/* Action Buttons */}
             <div className="flex gap-3">
+              {/* View Bids Button */}
               <button
-                onClick={() => setShowDeleteConfirm(gig.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGigClick(gig.id);
+                }}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 transition border border-blue-700"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                View Bids
+              </button>
+
+              {/* Delete Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(gig.id);
+                }}
                 disabled={deletingId === gig.id}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-rose-900/20 text-rose-200 hover:bg-rose-900/40 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 transition border border-rose-800"
               >
@@ -204,14 +236,14 @@ const GigOwnerDashboard = () => {
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowDeleteConfirm(null)}
-                      className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 text-white hover:bg-zinc-700 transition font-medium"
+                      className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 text-white hover:bg-zinc-700 transition"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => handleDeleteGig(gig.id, gig.title)}
+                      onClick={() => handleDeleteGig(gig.id)}
                       disabled={deletingId === gig.id}
-                      className="flex-1 px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                      className="flex-1 px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
                       {deletingId === gig.id ? 'Deleting...' : 'Delete'}
                     </button>
