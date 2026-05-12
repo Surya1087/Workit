@@ -341,6 +341,7 @@ const updateBid = async (req, res) => {
   }
 };
 
+// ✅ FIXED: Handle null gigId when gig is deleted
 const getMyBids = async (req, res) => {
   try {
     const freelancerId = req.user._id;
@@ -350,7 +351,21 @@ const getMyBids = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const transformedBids = bids.map((bid) => ({
+    // ✅ Filter out bids where gig has been deleted (gigId is null)
+    const validBids = bids.filter(bid => bid.gigId !== null);
+
+    // ✅ If there are bids with deleted gigs, clean them up
+    if (validBids.length !== bids.length) {
+      console.log(`⚠️ Found ${bids.length - validBids.length} bids with deleted gigs, cleaning up...`);
+      const deletedGigBidIds = bids
+        .filter(bid => bid.gigId === null)
+        .map(bid => bid._id);
+      
+      // Delete bids with deleted gigs
+      await Bid.deleteMany({ _id: { $in: deletedGigBidIds } });
+    }
+
+    const transformedBids = validBids.map((bid) => ({
       id: bid._id,
       gigId: bid.gigId._id,
       gig: {
@@ -368,13 +383,15 @@ const getMyBids = async (req, res) => {
       updatedAt: bid.updatedAt,
     }));
 
+    console.log('✅ Fetched user bids successfully:', transformedBids.length);
+
     return res.status(200).json({
       success: true,
       data: transformedBids,
       count: transformedBids.length,
     });
   } catch (error) {
-    console.error('Error fetching user bids:', error);
+    console.error('❌ Error fetching user bids:', error);
 
     return res.status(500).json({
       success: false,
