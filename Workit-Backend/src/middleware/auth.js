@@ -3,9 +3,15 @@ const User = require('../models/User');
 
 const parseBearerToken = (authorizationHeader) => {
   if (typeof authorizationHeader !== 'string') return null;
-  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) return null;
-  return match[1].trim() || null;
+  const trimmed = authorizationHeader.trim();
+  const separatorIndex = trimmed.indexOf(' ');
+
+  if (separatorIndex === -1) return null;
+
+  const scheme = trimmed.slice(0, separatorIndex).toLowerCase();
+  if (scheme !== 'bearer') return null;
+
+  return trimmed.slice(separatorIndex + 1).trim() || null;
 };
 
 const verifyClerkToken = async (token, context) => {
