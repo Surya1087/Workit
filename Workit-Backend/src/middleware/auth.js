@@ -1,47 +1,73 @@
-const { clerkClient } = require('@clerk/express');
+const { clerkClient, verifyToken } = require('@clerk/express');
 const User = require('../models/User');
+
+const parseBearerToken = (authorizationHeader) => {
+  if (typeof authorizationHeader !== 'string') return null;
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  return match[1].trim() || null;
+};
+
+const verifyClerkToken = async (token, context) => {
+  if (!process.env.CLERK_SECRET_KEY) {
+    console.error(`[auth:${context}] CLERK_SECRET_KEY is not configured`);
+    return null;
+  }
+
+  try {
+    return await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+  } catch (error) {
+    console.warn(`[auth:${context}] Token verification failed: ${error.message}`);
+    return null;
+  }
+};
+
+const fetchClerkUser = async (clerkUserId, context) => {
+  if (!clerkClient?.users || typeof clerkClient.users.getUser !== 'function') {
+    console.error(`[auth:${context}] Clerk client is unavailable (users.getUser missing)`);
+    return null;
+  }
+
+  try {
+    return await clerkClient.users.getUser(clerkUserId);
+  } catch (error) {
+    console.error(`[auth:${context}] Failed to fetch user from Clerk: ${error.message}`);
+    return null;
+  }
+};
 
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authorization header missing or malformed',
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
+    const token = parseBearerToken(authHeader);
 
     if (!token) {
+      const scheme = typeof authHeader === 'string' ? authHeader.split(' ')[0] : 'none';
+      console.warn(`[auth:required] Missing or malformed Authorization header (scheme: ${scheme})`);
       return res.status(401).json({
         success: false,
-        error: 'Token not provided',
+        error: 'Authentication failed',
       });
     }
 
-    // Verify the Clerk JWT using the token
-    const { verifyToken } = require('@clerk/express');
-    let verifiedToken;
-    try {
-      verifiedToken = await verifyToken(token, {
-        secretKey: process.env.CLERK_SECRET_KEY,
-      });
-    } catch (err) {
-      console.log('Token verification failed:', err.message);
+    const verifiedToken = await verifyClerkToken(token, 'required');
+    if (!verifiedToken) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid or expired token',
+        error: 'Authentication failed',
       });
     }
 
     const clerkUserId = verifiedToken.sub;
 
     if (!clerkUserId) {
+      console.warn('[auth:required] Token payload missing sub claim');
       return res.status(401).json({
         success: false,
-        error: 'Invalid token payload',
+        error: 'Authentication failed',
       });
     }
 
@@ -49,16 +75,13 @@ const authenticate = async (req, res, next) => {
     let user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      let clerkUser;
-      try {
-        clerkUser = await clerkClient.users.getUser(clerkUserId);
-      } catch (clerkError) {
-        console.error('Failed to fetch user from Clerk:', clerkError.message);
+      const clerkUser = await fetchClerkUser(clerkUserId, 'required');
+      if (!clerkUser) {
         return res.status(401).json({
           success: false,
-          error: 'Failed to fetch user data',
+          error: 'Authentication failed',
         });
-      }
+      }      
 
       // Extract email and name from Clerk user object
       const email = clerkUser.emailAddresses?.[0]?.emailAddress;
@@ -69,9 +92,10 @@ const authenticate = async (req, res, next) => {
         'User';
 
       if (!email) {
+        console.error(`[auth:required] Clerk user ${clerkUserId} has no email address`);
         return res.status(401).json({
           success: false,
-          error: 'Email not found in Clerk user data',
+          error: 'Authentication failed',
         });
       }
 
@@ -82,12 +106,12 @@ const authenticate = async (req, res, next) => {
           email,
           name,
         });
-        console.log('User created successfully:', user._id);
+        console.log(`[auth:required] User provisioned in MongoDB: ${user._id}`);
       } catch (createError) {
-        console.error('User creation failed:', createError);
+        console.error('[auth:required] User creation failed:', createError.message);
         return res.status(401).json({
           success: false,
-          error: 'Failed to create user',
+          error: 'Authentication failed',
         });
       }
     }
@@ -98,7 +122,7 @@ const authenticate = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[auth:required] Authentication error:', error.message);
     return res.status(401).json({
       success: false,
       error: 'Authentication failed',
@@ -115,88 +139,66 @@ const authenticate = async (req, res, next) => {
 const optionalAuthenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    const token = parseBearerToken(authHeader);
 
-    // If no auth header, just continue without user
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('🔓 [optionalAuth] NO AUTH HEADER - Continuing without user');
-      return next();
-    }
-
-    const token = authHeader.split(' ')[1];
-
+    // If no valid auth header, continue without user
     if (!token) {
-      console.log('🔓 [optionalAuth] NO TOKEN - Continuing without user');
       return next();
     }
 
-    console.log('🔐 [optionalAuth] TOKEN FOUND - Verifying...');
-
-    // Verify the Clerk JWT using the token
-    const { verifyToken } = require('@clerk/express');
-    let verifiedToken;
-    try {
-      verifiedToken = await verifyToken(token, {
-        secretKey: process.env.CLERK_SECRET_KEY,
-      });
-      console.log('✅ [optionalAuth] TOKEN VERIFIED - clerkUserId:', verifiedToken.sub);
-    } catch (err) {
-      // Invalid token, but we don't fail the request
-      console.log('⚠️ [optionalAuth] Token verification failed:', err.message);
+    const verifiedToken = await verifyClerkToken(token, 'optional');
+    if (!verifiedToken) {
+      // Invalid token, but optional auth should not fail the request
       return next();
     }
 
     const clerkUserId = verifiedToken.sub;
 
     if (!clerkUserId) {
-      console.log('⚠️ [optionalAuth] NO clerkUserId in token');
       return next();
     }
 
     // Find user in MongoDB
-    console.log('🔍 [optionalAuth] Looking for user in MongoDB with clerkUserId:', clerkUserId);
     let user = await User.findOne({ clerkUserId });
 
     if (!user) {
-      console.log('👤 [optionalAuth] User not found in MongoDB, fetching from Clerk...');
-      // Fetch user data from Clerk API
-      try {
-        const clerkUser = await clerkClient.users.getUser(clerkUserId);
-        
-        const email = clerkUser.emailAddresses?.[0]?.emailAddress;
-        const name = 
-          clerkUser.fullName ||
-          `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() ||
-          clerkUser.username ||
-          'User';
+      const clerkUser = await fetchClerkUser(clerkUserId, 'optional');
+      if (!clerkUser) {
+        return next();
+      }
 
-        if (email) {
+      const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+      const name = 
+        clerkUser.fullName ||
+        `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() ||
+        clerkUser.username ||
+        'User';
+
+      if (email) {
+        try {
           user = await User.create({
             clerkUserId,
             email,
             name,
           });
-          console.log('✅ [optionalAuth] User created successfully, MongoDB ID:', user._id);
+        } catch (createError) {
+          console.error(`[auth:optional] User creation failed: ${createError.message}`);
+          return next();
         }
-      } catch (createError) {
-        console.error('❌ [optionalAuth] User creation failed:', createError);
-        return next();
+      } else {
+        console.warn(`[auth:optional] Clerk user ${clerkUserId} has no email address`);
       }
-    } else {
-      console.log('✅ [optionalAuth] User found in MongoDB, ID:', user._id);
     }
 
     // Attach user document to request if found
     if (user) {
       req.user = user;
       req.clerkUserId = clerkUserId;
-      console.log('🔐 [optionalAuth] USER ATTACHED TO REQUEST - MongoDB ID:', user._id);
-    } else {
-      console.log('⚠️ [optionalAuth] User could not be created/found');
     }
 
     next();
   } catch (error) {
-    console.error('❌ [optionalAuth] Optional authentication error:', error);
+    console.error('[auth:optional] Optional authentication error:', error.message);
     // Don't fail the request, just continue without user
     next();
   }
