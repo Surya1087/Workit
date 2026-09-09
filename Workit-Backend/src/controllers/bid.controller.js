@@ -341,6 +341,63 @@ const updateBid = async (req, res) => {
   }
 };
 
+// A freelancer can withdraw only their own pending bid. Deleting it ensures the
+// gig owner no longer sees it in their list of received bids.
+const withdrawBid = async (req, res) => {
+  try {
+    const { bidId } = req.params;
+    const freelancerId = req.user._id;
+
+    const bid = await Bid.findOneAndDelete({
+      _id: bidId,
+      freelancerId,
+      status: BID_STATUS.PENDING,
+    });
+
+    if (!bid) {
+      const existingBid = await Bid.findById(bidId).lean();
+
+      if (!existingBid) {
+        return res.status(404).json({
+          success: false,
+          error: 'Bid not found',
+        });
+      }
+
+      if (existingBid.freelancerId.toString() !== freelancerId.toString()) {
+        return res.status(403).json({
+          success: false,
+          error: 'Only the bid owner can withdraw this bid',
+        });
+      }
+
+      return res.status(409).json({
+        success: false,
+        error: 'Only pending bids can be withdrawn',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Bid withdrawn successfully',
+    });
+  } catch (error) {
+    console.error('Error withdrawing bid:', error);
+
+    if (error.name === 'CastError' && error.kind === 'ObjectId') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid bid ID format',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to withdraw bid',
+    });
+  }
+};
+
 // ✅ FIXED: Handle null gigId when gig is deleted
 const getMyBids = async (req, res) => {
   try {
@@ -405,5 +462,6 @@ module.exports = {
   getBidsForGig,
   getMyBid,
   updateBid,
+  withdrawBid,
   getMyBids,
 };

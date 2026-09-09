@@ -18,6 +18,9 @@ router.get('/my/:gigId', authenticate, bidController.getMyBid);
 // PUT /api/bids/:bidId - Update user's own bid (auth required)
 router.put('/:bidId', authenticate, bidController.updateBid);
 
+// DELETE /api/bids/:bidId - Withdraw a pending bid (auth required, bid owner only)
+router.delete('/:bidId', authenticate, bidController.withdrawBid);
+
 // PATCH /api/bids/:bidId/hire - Hire freelancer (auth required, gig owner only)
 router.patch('/:bidId/hire', authenticate, hireController.hireBid);
 

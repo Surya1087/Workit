@@ -13,6 +13,9 @@ const BidsDashboard = () => {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
+  const [withdrawingId, setWithdrawingId] = useState(null);
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // Fetch bids
   useEffect(() => {
@@ -159,6 +162,25 @@ const BidsDashboard = () => {
     return colors[status] || 'bg-zinc-800 text-zinc-200 border-zinc-700';
   };
 
+  const handleWithdrawBid = async (bidId) => {
+    if (!client) return;
+
+    setWithdrawingId(bidId);
+    setShowWithdrawConfirm(null);
+    setError(null);
+
+    try {
+      await client.delete(`/bids/${bidId}`);
+      setBids((currentBids) => currentBids.filter((bid) => bid.id !== bidId));
+      setSuccessMessage('Your proposal was withdrawn and is no longer visible to the gig owner.');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to withdraw bid');
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
+
   if (!isLoaded || !client) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
@@ -169,6 +191,12 @@ const BidsDashboard = () => {
 
   return (
     <div className="space-y-8">
+      {successMessage && (
+        <div className="rounded-2xl border border-emerald-800 bg-emerald-900/30 p-4 text-emerald-200">
+          {successMessage}
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/60 backdrop-blur-sm border border-zinc-700/50 mb-2">
@@ -305,6 +333,19 @@ const BidsDashboard = () => {
                     <p className="text-sm text-zinc-400">Your Bid</p>
                     <p className="text-2xl font-bold text-white">{formatCurrency(bid.price)}</p>
                   </div>
+                  {bid.status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setShowWithdrawConfirm(bid.id);
+                      }}
+                      disabled={withdrawingId === bid.id}
+                      className="rounded-lg border border-rose-800 bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-200 transition hover:bg-rose-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {withdrawingId === bid.id ? 'Withdrawing...' : 'Cancel proposal'}
+                    </button>
+                  )}
                   <div className="px-4 py-2 rounded-lg bg-zinc-800/50 text-zinc-300">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -312,6 +353,43 @@ const BidsDashboard = () => {
                   </div>
                 </div>
               </div>
+
+              {showWithdrawConfirm === bid.id && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+                    <h3 className="mb-2 text-lg font-bold text-white">Cancel proposal?</h3>
+                    <p className="mb-6 text-sm text-zinc-400">
+                      Your proposal for <span className="font-semibold text-zinc-200">{bid.gig?.title}</span> will be permanently removed. The gig owner will no longer see it.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setShowWithdrawConfirm(null);
+                        }}
+                        className="flex-1 rounded-lg bg-zinc-800 px-4 py-2 text-white transition hover:bg-zinc-700"
+                      >
+                        Keep proposal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleWithdrawBid(bid.id);
+                        }}
+                        disabled={withdrawingId === bid.id}
+                        className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {withdrawingId === bid.id ? 'Withdrawing...' : 'Cancel proposal'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
